@@ -1,0 +1,35 @@
+# Temporary demo: the free database expires after 30 days.
+services:
+  - type: web
+    name: reentry-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: server
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run db:migrate:production && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reentry-db
+          property: connectionString
+      - key: CORS_ORIGINS
+        sync: false
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+databases:
+  - name: reentry-db
+    plan: free
+    region: frankfurt
+    databaseName: reentry
+    user: reentry
+    ipAllowList: []

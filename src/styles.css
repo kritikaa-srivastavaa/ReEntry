@@ -17,6 +17,104 @@
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
 }
+.auth-shell {
+  max-width: 440px;
+  margin: 60px auto;
+  padding: 28px;
+}
+.auth-shell .brand {
+  display: flex;
+  align-items: center;
+  margin-bottom: 28px;
+}
+.auth-shell h1 {
+  font-size: 28px;
+  margin-bottom: 16px;
+}
+.auth-shell > p {
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.auth-shell form .primary {
+  width: 100%;
+  margin: 18px 0 8px;
+}
+.auth-password {
+  position: relative;
+  margin: -9px 0 16px;
+}
+.auth-password input {
+  padding-right: 68px;
+}
+.auth-password button {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.auth-shell fieldset > .muted {
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+.account-bar {
+  max-width: 1240px;
+  margin: auto;
+  padding: 8px 40px 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  font-size: 11px;
+  color: #64748b;
+}
+.account-bar > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.migration-banner {
+  max-width: 1160px;
+  margin: 16px auto;
+  padding: 18px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.migration-banner p {
+  line-height: 1.6;
+  margin: 8px 0 12px;
+  overflow-wrap: anywhere;
+}
+.auth-error {
+  max-width: 1160px;
+  margin: 12px auto;
+}
+.popup-body .auth-shell {
+  margin: 0;
+  padding: 24px;
+}
+.popup-body .auth-shell h1 {
+  font-size: 24px;
+}
+.popup-body .account-bar {
+  padding: 6px 22px 0;
+}
+.popup-body .migration-banner {
+  margin: 10px 22px;
+}
+.popup-body .popup .cards {
+  max-height: 235px;
+}
+.capture-pending {
+  background: #eef2ff;
+  border-radius: 8px;
+  padding: 12px;
+}
 * {
   box-sizing: border-box;
 }

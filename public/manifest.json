@@ -1,7 +1,9 @@
 {
   "manifest_version": 3,
   "name": "ReEntry",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "minimum_chrome_version": "102",
+  "host_permissions": ["http://localhost/*"],
   "description": "Pick up where you left off. Save your context, next action, and resources for ongoing work.",
   "permissions": ["storage", "activeTab", "contextMenus"],
   "action": {

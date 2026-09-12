@@ -1,0 +1,44 @@
+{
+  "name": "reentry-server",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "overrides": {
+    "qs": "^6.16.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "tsx src/migrate.ts",
+    "db:migrate:production": "node dist/migrate.js",
+    "local:configure": "node scripts/configure-local.mjs",
+    "local:smoke": "node scripts/smoke-local.mjs",
+    "test": "tsx --test tests/api.test.ts",
+    "test:isolated": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-postgres.ps1"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "drizzle-orm": "^0.45.2",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^18.19.0",
+    "@types/pg": "^8.15.5",
+    "@types/supertest": "^6.0.3",
+    "supertest": "^7.1.4",
+    "tsx": "^4.19.2",
+    "typescript": "~5.7.3"
+  }
+}

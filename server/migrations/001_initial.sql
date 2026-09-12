@@ -1,0 +1,11 @@
+CREATE TYPE work_status AS ENUM ('IN_PROGRESS', 'NOT_STARTED', 'DONE');
+CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text NOT NULL UNIQUE, password_hash text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE sessions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at timestamptz NOT NULL);
+CREATE INDEX sessions_user_idx ON sessions(user_id);
+CREATE TABLE work_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, title text NOT NULL, category text NOT NULL, goal text NOT NULL DEFAULT '', status work_status NOT NULL DEFAULT 'NOT_STARTED', where_i_left_off text NOT NULL DEFAULT '', next_action text NOT NULL DEFAULT '', created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX work_items_user_status_updated_idx ON work_items(user_id, status, updated_at DESC);
+CREATE TABLE checklist_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), work_item_id uuid NOT NULL REFERENCES work_items(id) ON DELETE CASCADE, text text NOT NULL, completed boolean NOT NULL DEFAULT false, position integer NOT NULL CHECK(position >= 0), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX checklist_work_idx ON checklist_items(work_item_id);
+CREATE TABLE resources (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), work_item_id uuid NOT NULL REFERENCES work_items(id) ON DELETE CASCADE, title text NOT NULL, url text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX resource_work_url_unique ON resources(work_item_id, url);
+CREATE TABLE v1_imports (user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, source_id text NOT NULL, work_item_id uuid REFERENCES work_items(id) ON DELETE SET NULL, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(user_id, source_id));

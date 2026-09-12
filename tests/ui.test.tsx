@@ -34,12 +34,23 @@ test("workspace interactions: capture, create, resume, edit context, checklist, 
   };
   let items = seedItems();
   const listeners = new Set<(changes: unknown, area: string) => void>();
+  const updates = new Set<(message: { channel: string }) => void>();
   Object.assign(globalThis, {
     chrome: {
       runtime: {
         id: "test",
+        onMessage: {
+          addListener(fn: (message: { channel: string }) => void) {
+            updates.add(fn);
+          },
+          removeListener(fn: (message: { channel: string }) => void) {
+            updates.delete(fn);
+          },
+        },
         async sendMessage({ command }: { command: Command }) {
           items = applyCommand(items, command);
+          if (command.type !== "list")
+            updates.forEach((fn) => fn({ channel: "reentry-update" }));
           listeners.forEach((fn) =>
             fn(
               { [STORAGE_KEY]: { newValue: structuredClone(items) } },

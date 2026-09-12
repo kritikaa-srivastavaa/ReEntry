@@ -107,7 +107,7 @@ export function App() {
         </span>
         {!popup && (
           <span className="local-label">
-            <span /> Saved on this device
+            <span /> Account sync
           </span>
         )}
       </header>
