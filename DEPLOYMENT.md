@@ -1,14 +1,14 @@
 # Shared ReEntry deployment
 
-Status: the temporary Render API is live; the owner reports the V2.1 production
-acceptance checks passed. See VERIFICATION.md for evidence attribution.
+The portfolio demo uses one Render API service and one PostgreSQL database.
+Current release checks are recorded in [release readiness](docs/RELEASE.md).
 Local installations still use localhost until their extension builds are
 configured with the shared URL.
 
-V2.1's complete phased acceptance procedure and evidence record are in
-[VERIFICATION.md](VERIFICATION.md). Record the deployed commit and do not mistake
-a successful deployment for verified V2.1. Cross-device scenarios require manual
-verification against the deployed version.
+The [V2.1 record](docs/history/v2.1-verification.md) and
+[V3 record](docs/history/v3-verification.md) preserve milestone acceptance evidence.
+Record the deployed commit when checking a release; API health alone does not
+identify its code version.
 
 ## Selected option: temporary free Render demo
 
@@ -20,7 +20,7 @@ uses a PostgreSQL advisory lock and applies each migration only once.
 
 1. Create an account at <https://dashboard.render.com/> and connect the GitHub
    repository containing the reviewed changes. The deployment files must be
-   committed and pushed first; that step still requires the owner's approval.
+   committed and pushed first. Reuse existing services when updating a deployment.
 2. Select **New → Blueprint**, choose the repository, and use `render.yaml`.
 3. For `CORS_ORIGINS`, enter `chrome-extension://` followed by the extension ID
    shown at `chrome://extensions`. Additional device IDs can be added later,
@@ -47,7 +47,7 @@ backups. Export any demo data you want to keep before expiry. See the provider's
 Deploy `server/` as one Node.js web service with one persistent PostgreSQL
 database. Use the same database for every API instance. Do not provision a new
 database per device. Use a supported Node LTS runtime and keep a single API
-instance for this MVP's in-memory rate limits.
+instance for the in-memory rate limits.
 
 Run these commands with `server/` as the working directory:
 
@@ -138,6 +138,5 @@ login. That migration does not transfer local PostgreSQL V2 data.
 6. Save a browser resource, restart Chrome, and verify the saved work persists.
 7. Restart the API and confirm the account and work still exist.
 
-Do not describe cross-device support as live until these checks pass against
-the hosted API. No deployment, paid resource creation, commit or push is
-performed by this document.
+These checks apply to the hosted API, not an independently configured localhost
+database. No deployment or paid resource creation is performed by this document.

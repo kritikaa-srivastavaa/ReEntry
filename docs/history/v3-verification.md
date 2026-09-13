@@ -1,3 +1,5 @@
+> Historical milestone record. Test counts and setup notes below describe that milestone, not the current release. See [release readiness](../RELEASE.md) for current results and [local development](../DEVELOPMENT.md) for setup.
+
 # V3 review: workspace resume and checkpoints
 
 V3 is **validated for release**: automated checks passed and the owner confirmed
@@ -116,7 +118,7 @@ checkpoint review. Tab capture/restoration requires the installed extension.
   another checkpoint; the existing saved checkpoint is never silently overwritten.
 - Failed tab opens should report a partial failure; retry skips successful opens.
   Invalid/internal/credential-bearing URLs must not be opened or persisted.
-- Use the authenticated console pattern in `VERIFICATION.md` for direct ID tests.
+- Use the authenticated console pattern in [V2.1 verification](v2.1-verification.md) for direct ID tests.
   While logged into User B, send these work commands with User A's IDs through
   `chrome.runtime.sendMessage`; expect `error`, never a successful result:
 
@@ -192,7 +194,7 @@ the view discards unsaved text. There is no offline write queue.
 | Existing local data migration                | Backed up first; migration rerun safely; all existing fields preserved on 3 work items, 7 checklist items, and 2 resources |
 | Running local API                            | Restarted with V3 build; `/api/health` returned `{"status":"ok"}`                                                          |
 | Real Chrome visual/permission/tab acceptance | Validated by owner; main Chrome flow explicitly confirmed, then all tests reported complete                                |
-| V3 publication and production acceptance     | Publication authorized; resulting Render release needs deployment confirmation                                             |
+| V3 publication and production acceptance     | Implementation published as `d3e490a`; deployment is a separate operational check                                          |
 
 `dist` is the local review build. The hosted configuration was verified separately
 under ignored `.reentry-dev/v3-hosted-build`; it has not been loaded or deployed.

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { ExternalLink, Layers, Play, Trash2 } from "lucide-react";
 import { type WorkItem, type WorkspaceLink, safeUrl } from "./model";
 import {

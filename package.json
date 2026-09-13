@@ -13,8 +13,8 @@
     "server:build": "npm --prefix server run build",
     "local:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1",
     "local:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-local.ps1",
-    "format": "prettier --write src tests server/src server/tests server/scripts/*.mjs server/*.json public/manifest.json *.json *.html vite.config.ts *.md render.yaml",
-    "format:check": "prettier --check src tests server/src server/tests server/scripts/*.mjs server/*.json public/manifest.json *.json *.html vite.config.ts *.md render.yaml"
+    "format": "prettier --write src tests server/src server/tests server/scripts/*.mjs server/*.json public/manifest.json *.json *.html vite.config.ts *.md docs/**/*.md render.yaml",
+    "format:check": "prettier --check src tests server/src server/tests server/scripts/*.mjs server/*.json public/manifest.json *.json *.html vite.config.ts *.md docs/**/*.md render.yaml"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
