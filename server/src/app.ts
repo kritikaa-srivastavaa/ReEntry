@@ -29,7 +29,14 @@ import {
   resourceSchema,
   statusSchema,
   workSchema,
+  workspaceSchema,
+  checkpointSchema,
 } from "./validation.js";
+import {
+  addResources,
+  checkpointHistory,
+  saveCheckpoint,
+} from "./workspace-service.js";
 import {
   HttpError,
   createWork,
@@ -424,24 +431,68 @@ export function createApp(
         input = resourceSchema.omit({ id: true }).parse(req.body);
       const resource = await db.transaction(async (tx) => {
         await ownedWork(tx, res.locals.userId, id, true);
-        await tx
-          .insert(resources)
-          .values({ ...input, workItemId: id })
-          .onConflictDoNothing();
+        const [saved] = await addResources(
+          tx,
+          id,
+          [input],
+          input.source ?? "MANUAL",
+        );
         await tx
           .update(workItems)
           .set({ updatedAt: new Date() })
           .where(eq(workItems.id, id));
-        return (
-          await tx
-            .select()
-            .from(resources)
-            .where(
-              and(eq(resources.workItemId, id), eq(resources.url, input.url)),
-            )
-        )[0];
+        return saved;
       });
       res.status(201).json({ resource });
+    }),
+  );
+  app.post(
+    "/api/work-items/:id/resources/bulk",
+    route(async (req, res) => {
+      const id = idSchema.parse(req.params.id);
+      const input = workspaceSchema.parse(req.body);
+      const saved = await db.transaction(async (tx) => {
+        await ownedWork(tx, res.locals.userId, id, true);
+        const links = await addResources(tx, id, input.resources, "WORKSPACE");
+        await tx
+          .update(workItems)
+          .set({ updatedAt: new Date() })
+          .where(eq(workItems.id, id));
+        return links;
+      });
+      res.status(201).json({ resources: saved });
+    }),
+  );
+  app.post(
+    "/api/work-items/:id/checkpoints",
+    route(async (req, res) => {
+      const id = idSchema.parse(req.params.id);
+      const input = checkpointSchema.parse(req.body);
+      res.status(201).json({
+        checkpoint: await saveCheckpoint(db, res.locals.userId, id, input),
+      });
+    }),
+  );
+  app.get(
+    "/api/work-items/:id/checkpoints",
+    route(async (req, res) => {
+      const id = idSchema.parse(req.params.id);
+      const query = z
+        .object({
+          limit: z.coerce.number().int().min(1).max(50).default(5),
+          offset: z.coerce.number().int().min(0).max(100000).default(0),
+        })
+        .strict()
+        .parse(req.query);
+      res.json(
+        await checkpointHistory(
+          db,
+          res.locals.userId,
+          id,
+          query.limit,
+          query.offset,
+        ),
+      );
     }),
   );
   app.delete(

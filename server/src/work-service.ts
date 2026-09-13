@@ -72,7 +72,11 @@ export async function listWork(
     .select()
     .from(resources)
     .where(inArray(resources.workItemId, ids))
-    .orderBy(asc(resources.createdAt), asc(resources.id));
+    .orderBy(
+      asc(resources.position),
+      asc(resources.createdAt),
+      asc(resources.id),
+    );
   return rows.map(({ userId: _userId, ...row }) => ({
     ...row,
     checklist: checks
@@ -130,8 +134,13 @@ export async function replaceChildren(
     await db.delete(resources).where(eq(resources.workItemId, id));
     if (input.resources.length)
       await db.insert(resources).values(
-        input.resources.map((r) => ({
+        input.resources.map((r, position) => ({
           ...r,
+          source:
+            r.source ??
+            existing.find((old) => old.id === r.id)?.source ??
+            "MANUAL",
+          position,
           workItemId: id,
           createdAt: existing.find((old) => old.id === r.id)?.createdAt,
           updatedAt: new Date(),

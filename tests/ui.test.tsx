@@ -47,7 +47,15 @@ test("workspace interactions: capture, create, resume, edit context, checklist, 
             updates.delete(fn);
           },
         },
-        async sendMessage({ command }: { command: Command }) {
+        async sendMessage({
+          channel,
+          command,
+        }: {
+          channel: string;
+          command: Command;
+        }) {
+          if (channel === "reentry-history")
+            return { history: { checkpoints: [], hasMore: false } };
           items = applyCommand(items, command);
           if (command.type !== "list")
             updates.forEach((fn) => fn({ channel: "reentry-update" }));

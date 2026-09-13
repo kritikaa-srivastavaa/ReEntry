@@ -1,4 +1,4 @@
-# ReEntry V2
+# ReEntry
 
 V1 proved the resume-work experience with a local Chrome extension. V2 adds
 accounts, an authenticated REST API and PostgreSQL so data can be shared across
@@ -8,6 +8,23 @@ evidence are recorded separately in the [V2.1 verification guide](VERIFICATION.m
 alongside the manual procedures and remaining evidence limitations.
 
 ReEntry helps you resume ongoing work by remembering where you stopped, what to do next, and which resources belong to that work. It is a personal work console, not a generic task manager.
+
+**V3 is validated:** automated checks passed and the owner confirmed manual
+acceptance testing is complete. Deployment of the published V3 release must
+still be confirmed separately. It adds
+selected workspace tab capture, URL-based Resume Work, and session checkpoints
+with compact progress history. Task managers remember what needs doing;
+bookmarks remember where resources are. ReEntry connects that workspace to
+what you were working on, where you stopped, and what comes next.
+
+- **V1:** local context-aware work manager.
+- **V2:** accounts, REST API, and PostgreSQL.
+- **V2.1:** deployed persistence and cross-profile sync.
+- **V3:** workspace capture, resume, checkpoints, and recent progress.
+
+See [V3 setup and acceptance](V3-VERIFICATION.md) before loading the new build.
+V3 needs database migration `003_workspace_checkpoints.sql` and the matching API;
+a V2.1 API does not implement the new endpoints.
 
 The compact popup cards, dashboard list, direct navigation to details, context editor, checklists, resource capture, search, and status filters remain. The dashboard sorts In Progress, Not Started, then Done, with newest updates first in each group.
 
@@ -190,6 +207,41 @@ Open `http://localhost:5173/workspace.html`. This uses the same API and UI. Its 
 - Offline logout clears the local session and reports when server revocation could not be confirmed. Such a server session expires automatically. A 401 clears the extension session and returns the user to login.
 - Requests use bearer authorization, not ambient cookies. CORS allows only configured browser origins. Request schemas are strict, passwords are never returned, URLs are limited to HTTP(S), body size and request rates are limited, and database/internal errors are not returned to clients.
 - Every work operation is user-scoped. Child mutations verify the parent owner; using another user's work, checklist, or resource ID fails with 404.
+
+## V3 workspace and checkpoints
+
+Open a work item directly from a popup card or dashboard row. Its detail keeps
+Where I Left Off and Next Action first. **Save Workspace** lists supported tabs
+in the current window with nothing preselected. Choose up to 50 and save; URLs
+are normalized and deduplicated per work item. Existing tabs remain saved until
+removed. Selecting a manual resource for the workspace promotes that same entry.
+Other resources and the single-page context-menu action continue to work.
+
+**Resume Work** opens selected saved workspace URLs as background tabs in the
+current window, skipping URLs already open or navigating there. It preserves URL
+query strings/fragments, including lecture timestamps. It does not restore page
+state, history, cookies, forms, or scroll positions.
+
+**Save checkpoint** updates both current context fields and adds history in one
+transaction, optionally adding selected workspace tabs. A stable attempt ID
+makes retries safe without duplicating history or restoring old context over a
+newer checkpoint. Failed saves leave the open form and selections available.
+**Recent progress** shows five newest checkpoints and expands on request.
+History refreshes with the existing focus/poll synchronization. Ordinary Save
+context edits remain lightweight and do not create historical checkpoints.
+
+Migration 003 adds `resources.source` (`MANUAL` / `WORKSPACE`) and `position`,
+plus `work_checkpoints` with parent ID, context fields, creation time, and private
+retry metadata. Existing resources are preserved as manual links; deleting work
+cascades its checkpoints. New APIs are `POST /api/work-items/:id/resources/bulk`
+and `GET` / `POST /api/work-items/:id/checkpoints`. All are user-scoped.
+
+The manifest adds **optional `tabs` permission**, requested only when using
+workspace capture/resume to read current-tab titles/URLs and detect duplicates.
+Declining leaves existing work features available. The extension does not
+collect browsing history or page content, and only chosen titles/URLs reach the
+API. Existing `storage`, `activeTab`, `contextMenus`, and API-specific host
+permissions remain. See [Chrome's tabs API](https://developer.chrome.com/docs/extensions/reference/api/tabs).
 
 ## V1 migration
 

@@ -8,7 +8,13 @@ import {
   type Session,
   type SessionView,
 } from "./api";
-import { STORAGE_KEY, type Command, type WorkItem } from "./model";
+import {
+  STORAGE_KEY,
+  type Command,
+  type WorkItem,
+  type HistoryCommand,
+  type CheckpointPage,
+} from "./model";
 export const SESSION_KEY = "reentry.session.v2";
 export const MIGRATION_KEY = "reentry.migration.v2";
 export const MIGRATION_OWNER_KEY = "reentry.migration.owner.v2";
@@ -169,6 +175,14 @@ export function createSessionService(
     }
   }
   return {
+    history: (command: HistoryCommand) =>
+      run(async () => {
+        const saved = await requireSession();
+        return apiFetch<CheckpointPage>(
+          `/work-items/${encodeURIComponent(command.id)}/checkpoints?limit=${command.limit}&offset=${command.offset}`,
+          saved.token,
+        );
+      }),
     auth: (command: AuthCommand) => run(() => auth(command)),
     work: (command: Command) =>
       run(async () => {

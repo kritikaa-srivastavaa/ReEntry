@@ -5,8 +5,6 @@ import {
   ArrowRight,
   BookmarkPlus,
   Check,
-  ChevronRight,
-  ExternalLink,
   Leaf,
   Plus,
   RotateCcw,
@@ -23,6 +21,8 @@ import {
   statusPresentation,
 } from "./presentation";
 import { Badge, PopupCards, WorkInventory } from "./WorkInventory";
+import { WorkspacePanel } from "./WorkspacePanel";
+import { CheckpointForm, RecentProgress } from "./Checkpoints";
 
 const popup = location.pathname.endsWith("popup.html");
 document.body.className = popup ? "popup-body" : "workspace-body";
@@ -339,6 +339,8 @@ function Detail({
       next: item.nextAction,
     };
   }, [item.whereILeftOff, item.nextAction]);
+  const [checkpointOpen, setCheckpointOpen] = useState(false);
+  const [checkpointRevision, setCheckpointRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dirty = left !== item.whereILeftOff || next !== item.nextAction;
@@ -366,11 +368,17 @@ function Detail({
   return (
     <main className={`detail ${statusPresentation[item.status].className}`}>
       <nav className="detail-nav">
-        <button disabled={busy} onClick={() => void leave(back)}>
+        <button
+          disabled={busy || checkpointOpen}
+          onClick={() => void leave(back)}
+        >
           <ArrowLeft size={16} />
           Your work
         </button>
-        <button disabled={busy} onClick={() => void leave(edit)}>
+        <button
+          disabled={busy || checkpointOpen}
+          onClick={() => void leave(edit)}
+        >
           <Pencil size={15} />
           Edit item
         </button>
@@ -387,6 +395,7 @@ function Detail({
         <label className="context-field">
           <span className="eyebrow">01 / WHERE I LEFT OFF</span>
           <textarea
+            disabled={checkpointOpen || busy}
             value={left}
             onChange={(e) => setLeft(e.target.value)}
             placeholder="What did you finish? What is still on your mind?"
@@ -399,6 +408,7 @@ function Detail({
         <label className="context-field next-field">
           <span className="eyebrow">02 / NEXT ACTION</span>
           <textarea
+            disabled={checkpointOpen || busy}
             value={next}
             onChange={(e) => setNext(e.target.value)}
             placeholder="One concrete step to get moving again…"
@@ -414,7 +424,7 @@ function Detail({
         </span>
         <button
           className="primary"
-          disabled={busy || !dirty}
+          disabled={busy || checkpointOpen || !dirty}
           onClick={() => void save()}
         >
           {busy ? "Saving…" : "Save context"}
@@ -426,6 +436,30 @@ function Detail({
           {error}
         </p>
       )}
+      <div className="checkpoint-action">
+        <p className="muted">Pausing here? Leave yourself a clear way back.</p>
+        {!checkpointOpen && (
+          <button disabled={busy} onClick={() => setCheckpointOpen(true)}>
+            Save checkpoint
+          </button>
+        )}
+      </div>
+      {checkpointOpen && (
+        <CheckpointForm
+          id={item.id}
+          left={left}
+          next={next}
+          close={() => setCheckpointOpen(false)}
+          saved={(savedLeft, savedNext) => {
+            setLeft(savedLeft);
+            setNext(savedNext);
+            setCheckpointOpen(false);
+            setCheckpointRevision((value) => value + 1);
+            onSaved();
+          }}
+        />
+      )}
+      <WorkspacePanel item={item} />
       <section className="detail-section">
         <div className="section-heading">
           <h2>Small steps</h2>
@@ -465,39 +499,11 @@ function Detail({
           </p>
         )}
       </section>
-      <section className="detail-section">
-        <div className="section-heading">
-          <h2>Resources</h2>
-          <span>{item.resources.length} saved</span>
-        </div>
-        {item.resources.map((resource) => (
-          <a
-            className="resource"
-            key={resource.id}
-            href={safeUrl(resource.url) ? resource.url : undefined}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <span className="resource-icon">
-              <ExternalLink size={16} />
-            </span>
-            <span>
-              <strong>{resource.title}</strong>
-              <small>
-                {safeUrl(resource.url)
-                  ? new URL(resource.url).hostname
-                  : "Invalid URL"}
-              </small>
-            </span>
-            <ChevronRight size={16} />
-          </a>
-        ))}
-        {!item.resources.length && (
-          <p className="muted">
-            Save a page from the popup or add a resource in Edit item.
-          </p>
-        )}
-      </section>
+      <RecentProgress
+        id={item.id}
+        updatedAt={item.updatedAt}
+        revision={checkpointRevision}
+      />
       <p className="updated">
         Last updated{" "}
         {new Date(item.updatedAt).toLocaleString([], {

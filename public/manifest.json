@@ -1,16 +1,20 @@
 {
   "manifest_version": 3,
   "name": "ReEntry",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "minimum_chrome_version": "102",
   "host_permissions": ["http://localhost/*"],
   "description": "Pick up where you left off. Save your context, next action, and resources for ongoing work.",
   "permissions": ["storage", "activeTab", "contextMenus"],
+  "optional_permissions": ["tabs"],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "ReEntry — pick up where you left off"
+    "default_title": "ReEntry \u2014 pick up where you left off"
   },
-  "background": { "service_worker": "background.js", "type": "module" },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

@@ -138,10 +138,11 @@ export async function executeApiCommand(
         text,
         completed,
       })),
-      resources: item.resources.map(({ id, title, url }) => ({
+      resources: item.resources.map(({ id, title, url, source }) => ({
         id,
         title,
         url,
+        source: source ?? "MANUAL",
       })),
     }));
   }
@@ -187,5 +188,30 @@ export async function executeApiCommand(
       "POST",
       { title: command.title, url: command.url },
     );
+  if (command.type === "workspace")
+    await apiFetch(
+      `/work-items/${encodeURIComponent(command.id)}/resources/bulk`,
+      token,
+      "POST",
+      { resources: command.resources },
+    );
+  if (command.type === "remove-resource")
+    await apiFetch(
+      `/resources/${encodeURIComponent(command.resourceId)}`,
+      token,
+      "DELETE",
+    );
+  if (command.type === "checkpoint") {
+    const result = await apiFetch<{ checkpoint?: { id?: string } }>(
+      `/work-items/${encodeURIComponent(command.id)}/checkpoints`,
+      token,
+      "POST",
+      command.input,
+    );
+    if (!result?.checkpoint?.id)
+      throw new ApiError(
+        "Checkpoint save could not be confirmed. Retry this draft to check the saved attempt.",
+      );
+  }
   return [];
 }

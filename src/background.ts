@@ -1,4 +1,4 @@
-import type { Command } from "./model";
+import type { Command, HistoryCommand } from "./model";
 import type { AuthCommand } from "./api";
 import { createSessionService } from "./session-service";
 
@@ -31,9 +31,12 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (
     sender.id !== chrome.runtime.id ||
     !sender.url?.startsWith(chrome.runtime.getURL("")) ||
-    !["reentry", "reentry-auth", "reentry-diagnostic"].includes(
-      message?.channel,
-    )
+    ![
+      "reentry",
+      "reentry-auth",
+      "reentry-diagnostic",
+      "reentry-history",
+    ].includes(message?.channel)
   )
     return;
   // Deliberately bypass the queue: diagnostics must still answer if it is stuck.
@@ -47,7 +50,11 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     try {
       return await (message.channel === "reentry-auth"
         ? { session: await service.auth(message.command as AuthCommand) }
-        : { items: await service.work(message.command as Command) });
+        : message.channel === "reentry-history"
+          ? {
+              history: await service.history(message.command as HistoryCommand),
+            }
+          : { items: await service.work(message.command as Command) });
     } finally {
       workerState = "ready";
     }

@@ -4,6 +4,31 @@ export interface Resource {
   id: string;
   title: string;
   url: string;
+  source?: "MANUAL" | "WORKSPACE";
+}
+export interface WorkCheckpoint {
+  id: string;
+  workItemId: string;
+  whereILeftOff: string;
+  nextAction: string;
+  createdAt: string;
+}
+export interface CheckpointPage {
+  checkpoints: WorkCheckpoint[];
+  hasMore: boolean;
+}
+export interface HistoryCommand {
+  type: "history";
+  id: string;
+  limit: number;
+  offset: number;
+}
+export type WorkspaceLink = Pick<Resource, "title" | "url">;
+export interface CheckpointInput {
+  requestId: string;
+  whereILeftOff: string;
+  nextAction: string;
+  resources?: WorkspaceLink[];
 }
 export interface CheckItem {
   id: string;
@@ -40,11 +65,19 @@ export type Command =
   | { type: "patch"; id: string; patch: Partial<Editable> }
   | { type: "delete"; id: string }
   | { type: "check"; id: string; checkId: string; completed: boolean }
-  | { type: "resource"; id: string; title: string; url: string };
+  | { type: "resource"; id: string; title: string; url: string }
+  | { type: "workspace"; id: string; resources: WorkspaceLink[] }
+  | { type: "remove-resource"; id: string; resourceId: string }
+  | { type: "checkpoint"; id: string; input: CheckpointInput };
 export const STORAGE_KEY = "reentry.workItems.v1";
 export function safeUrl(value: string): boolean {
   try {
-    return ["https:", "http:"].includes(new URL(value).protocol);
+    const url = new URL(value);
+    return (
+      ["https:", "http:"].includes(url.protocol) &&
+      !url.username &&
+      !url.password
+    );
   } catch {
     return false;
   }

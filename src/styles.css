@@ -1197,3 +1197,148 @@ form label > select {
     overflow-wrap: anywhere;
   }
 }
+
+/* V3 adds focused sections inside the existing detail experience. */
+.inline-panel {
+  border: 1px solid #c7d2fe;
+  background: #f8f9ff;
+  border-radius: 12px;
+  padding: 18px;
+  margin: 14px 0;
+}
+.panel-actions,
+.checkpoint-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.checkpoint-action {
+  margin-top: 18px;
+}
+.checkpoint-action button {
+  color: var(--accent);
+  font-weight: 650;
+}
+.checkpoint-form h2 {
+  margin-bottom: 18px;
+  font-size: 17px;
+}
+.checkpoint-form label {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.checkpoint-form textarea {
+  width: 100%;
+}
+.checkpoint-next {
+  color: #3730a3;
+  font-weight: 550;
+}
+.tab-choice-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.tab-choice,
+.checkpoint-form .tab-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  margin: 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+.tab-choice input,
+.workspace-resource > input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  accent-color: var(--accent);
+}
+.tab-choice span {
+  min-width: 0;
+}
+.tab-choice strong,
+.tab-choice small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.tab-choice small {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+}
+.workspace-resource {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #edf0f6;
+}
+.workspace-resource .resource {
+  flex: 1;
+  min-width: 0;
+  border: none;
+}
+.workspace-resource .resource > span {
+  min-width: 0;
+}
+.workspace-resource .resource strong,
+.workspace-resource .resource small {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.workspace-resource button {
+  flex-shrink: 0;
+  padding: 8px;
+  color: #64748b;
+}
+.resume-work {
+  margin: 16px 0 4px;
+}
+.other-resources {
+  margin-top: 28px;
+}
+.workspace-notice {
+  color: #166534;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.checkpoint-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.checkpoint-list li {
+  padding: 14px 0 14px 16px;
+  border-left: 2px solid #c7d2fe;
+  border-bottom: 1px solid #edf0f6;
+}
+.checkpoint-list time {
+  font-size: 11px;
+  color: #64748b;
+}
+.checkpoint-list p {
+  margin: 6px 0 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.popup .inline-panel {
+  padding: 12px;
+}
+.popup .workspace-panel .section-heading {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.popup .panel-actions .primary {
+  flex: 1;
+}
+@media (max-width: 560px) {
+  .workspace-panel .section-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

@@ -1,13 +1,13 @@
 {
   "name": "reentry",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && vite build",
-    "test": "tsx --test tests/model.test.ts tests/background.test.ts tests/ui.test.tsx tests/auth.test.tsx tests/reliability.test.tsx",
+    "test": "tsx --test tests/model.test.ts tests/background.test.ts tests/ui.test.tsx tests/auth.test.tsx tests/reliability.test.tsx tests/workspace.test.tsx",
     "build:hosted": "npm run typecheck && vite build --mode hosted",
     "server:dev": "npm --prefix server run dev",
     "server:build": "npm --prefix server run build",

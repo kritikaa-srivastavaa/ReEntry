@@ -9,7 +9,7 @@ import { eq } from "drizzle-orm";
 import { connectDatabase } from "../src/db.js";
 import { migrate } from "../src/migrate.js";
 import { createApp } from "../src/app.js";
-import { users, workItems } from "../src/schema.js";
+import { users, workItems, workCheckpoints, resources } from "../src/schema.js";
 
 test("API integration against isolated PostgreSQL", async (t) => {
   if (!process.env.TEST_DATABASE_URL)
@@ -470,6 +470,287 @@ test("API integration against isolated PostgreSQL", async (t) => {
           .send({ sourceId, items: [legacy] })
           .expect(200);
         assert.equal(retry.body.imported, 0);
+      },
+    );
+    await t.test(
+      "V3 selected workspace URLs deduplicate, retain order and enforce ownership",
+      async () => {
+        const work = (
+          await request(app)
+            .post("/api/work-items")
+            .set(authA)
+            .send(input)
+            .expect(201)
+        ).body.item;
+        const links = [
+          { title: "Primer", url: "https://EXAMPLE.com:443" },
+          { title: "Lecture", url: "https://video.example/watch?t=42" },
+          { title: "Docs", url: "https://docs.example/guide#replication" },
+        ];
+        const path = `/api/work-items/${work.id}/resources/bulk`;
+        await request(app).post(path).send({ resources: links }).expect(401);
+        await request(app)
+          .post(path)
+          .set(authB)
+          .send({ resources: links })
+          .expect(404);
+        const attempts = await Promise.all(
+          [1, 2].map(() =>
+            request(app)
+              .post(path)
+              .set(authA)
+              .send({ resources: [...links, links[0]] }),
+          ),
+        );
+        attempts.forEach((response) => assert.equal(response.status, 201));
+        let detail = (
+          await request(app)
+            .get(`/api/work-items/${work.id}`)
+            .set(authA)
+            .expect(200)
+        ).body.item;
+        assert.equal(detail.resources.length, 3);
+        assert.deepEqual(
+          detail.resources.map((r: { url: string }) => r.url),
+          links.map((r) => new URL(r.url).href),
+        );
+        assert.ok(
+          detail.resources.every(
+            (r: { source: string }) => r.source === "WORKSPACE",
+          ),
+        );
+        assert.equal(
+          detail.resources[0].id,
+          work.resources[0].id,
+          "selecting an existing manual resource promotes it without duplicating it",
+        );
+        await request(app)
+          .post(`/api/work-items/${work.id}/resources`)
+          .set(authA)
+          .send({ title: "Manual notes", url: "https://notes.example/" })
+          .expect(201);
+        await request(app)
+          .post(`/api/work-items/${work.id}/resources`)
+          .set(authA)
+          .send(links[0])
+          .expect(201);
+        for (const url of [
+          "not a URL",
+          "chrome://settings",
+          "chrome-extension://id/page",
+          "edge://settings",
+          "about:blank",
+          "javascript:alert(1)",
+          "file:///private",
+          "https://user:secret@example.com/",
+        ]) {
+          await request(app)
+            .post(path)
+            .set(authA)
+            .send({ resources: [links[0], { title: "Invalid", url }] })
+            .expect(400);
+        }
+        await request(app)
+          .post(path)
+          .set(authA)
+          .send({ resources: [] })
+          .expect(400);
+        await request(app)
+          .post(path)
+          .set(authA)
+          .send({ resources: Array(51).fill(links[0]) })
+          .expect(400);
+        detail = (
+          await request(app).get(`/api/work-items/${work.id}`).set(authA)
+        ).body.item;
+        assert.equal(detail.resources.length, 4);
+        assert.equal(
+          detail.resources[0].source,
+          "WORKSPACE",
+          "context-menu resave cannot downgrade a workspace tab",
+        );
+        assert.equal(detail.resources[3].source, "MANUAL");
+        // An older client may omit source when editing: preserve existing metadata.
+        const edited = detail.resources.map(
+          (r: { id: string; title: string; url: string }) => ({
+            id: r.id,
+            title: r.title + " edited",
+            url: r.url,
+          }),
+        );
+        const patched = await request(app)
+          .patch(`/api/work-items/${work.id}`)
+          .set(authA)
+          .send({ resources: edited })
+          .expect(200);
+        assert.equal(patched.body.item.resources[0].source, "WORKSPACE");
+        await request(app)
+          .delete(`/api/resources/${detail.resources[1].id}`)
+          .set(authB)
+          .expect(404);
+        await request(app)
+          .delete(`/api/resources/${detail.resources[1].id}`)
+          .set(authA)
+          .expect(204);
+        await request(app)
+          .delete(`/api/work-items/${work.id}`)
+          .set(authA)
+          .expect(204);
+      },
+    );
+    await t.test(
+      "V3 checkpoints update context atomically, retry safely, paginate and cascade",
+      async () => {
+        const work = (
+          await request(app)
+            .post("/api/work-items")
+            .set(authA)
+            .send(input)
+            .expect(201)
+        ).body.item;
+        const path = `/api/work-items/${work.id}/checkpoints`;
+        const checkpoint = {
+          requestId: randomUUID(),
+          whereILeftOff: "Finished replication",
+          nextAction: "Understand consistent hashing",
+          resources: [
+            { title: "Sharding", url: "https://example.com/sharding" },
+          ],
+        };
+        await request(app).get(path).expect(401);
+        await request(app).get(path).set(authB).expect(404);
+        await request(app).post(path).send(checkpoint).expect(401);
+        await request(app).post(path).set(authB).send(checkpoint).expect(404);
+        await request(app)
+          .get("/api/work-items/not-an-id/checkpoints")
+          .set(authA)
+          .expect(400);
+        await request(app)
+          .post(path)
+          .set(authA)
+          .send({ ...checkpoint, whereILeftOff: " " })
+          .expect(400);
+        await request(app)
+          .post(path)
+          .set(authA)
+          .send({
+            ...checkpoint,
+            resources: [{ title: "Invalid", url: "chrome://settings" }],
+          })
+          .expect(400);
+        assert.equal(
+          (await request(app).get(path).set(authA)).body.checkpoints.length,
+          0,
+        );
+        const attempts = await Promise.all(
+          [1, 2].map(() => request(app).post(path).set(authA).send(checkpoint)),
+        );
+        attempts.forEach((r) => assert.equal(r.status, 201));
+        const first = attempts[0].body.checkpoint;
+        assert.equal(first.id, attempts[1].body.checkpoint.id);
+        assert.equal(first.payloadHash, undefined);
+        let detail = (
+          await request(app).get(`/api/work-items/${work.id}`).set(authA)
+        ).body.item;
+        assert.equal(detail.whereILeftOff, checkpoint.whereILeftOff);
+        assert.equal(detail.nextAction, checkpoint.nextAction);
+        assert.notEqual(detail.updatedAt, work.updatedAt);
+        assert.equal(detail.resources.length, 2);
+        const second = (
+          await request(app)
+            .post(path)
+            .set(authA)
+            .send({
+              requestId: randomUUID(),
+              whereILeftOff: "Finished sharding",
+              nextAction: "Sketch the design",
+            })
+            .expect(201)
+        ).body.checkpoint;
+        await request(app).post(path).set(authA).send(checkpoint).expect(201);
+        await request(app)
+          .post(path)
+          .set(authA)
+          .send({ ...checkpoint, nextAction: "Changed after save" })
+          .expect(409);
+        detail = (
+          await request(app).get(`/api/work-items/${work.id}`).set(authA)
+        ).body.item;
+        assert.equal(
+          detail.nextAction,
+          "Sketch the design",
+          "retrying an old checkpoint cannot overwrite newer context",
+        );
+        const history = (
+          await request(app)
+            .get(path + "?limit=1")
+            .set(authA)
+            .expect(200)
+        ).body;
+        assert.equal(history.checkpoints[0].id, second.id);
+        assert.equal(history.hasMore, true);
+        const older = (
+          await request(app)
+            .get(path + "?limit=1&offset=1")
+            .set(authA)
+            .expect(200)
+        ).body;
+        assert.equal(older.checkpoints[0].id, first.id);
+        assert.equal(older.hasMore, false);
+        await request(app)
+          .get(path + "?limit=1000")
+          .set(authA)
+          .expect(400);
+        const restarted = createApp(db, { jwtSecret: secret, origins: [] });
+        assert.equal(
+          (await request(restarted).get(path).set(authA).expect(200)).body
+            .checkpoints.length,
+          2,
+        );
+        // Exhaust resource capacity to exercise a failed checkpoint transaction.
+        await db.insert(resources).values(
+          Array.from({ length: 498 }, (_, index) => ({
+            workItemId: work.id,
+            title: "Existing",
+            url: `https://capacity.example/${index}`,
+          })),
+        );
+        await request(app)
+          .post(path)
+          .set(authA)
+          .send({
+            ...checkpoint,
+            requestId: randomUUID(),
+            nextAction: "Must not save",
+            resources: [
+              { title: "Extra", url: "https://capacity.example/extra" },
+            ],
+          })
+          .expect(400);
+        assert.equal(
+          (await request(app).get(path).set(authA)).body.checkpoints.length,
+          2,
+        );
+        assert.equal(
+          (await request(app).get(`/api/work-items/${work.id}`).set(authA)).body
+            .item.nextAction,
+          "Sketch the design",
+        );
+        await request(app)
+          .delete(`/api/work-items/${work.id}`)
+          .set(authA)
+          .expect(204);
+        assert.equal(
+          (
+            await db
+              .select()
+              .from(workCheckpoints)
+              .where(eq(workCheckpoints.workItemId, work.id))
+          ).length,
+          0,
+        );
+        await request(app).get(path).set(authA).expect(404);
+        await request(app).post(path).set(authA).send(checkpoint).expect(404);
       },
     );
     await t.test("revocation, expiration, CORS and safe errors", async () => {

@@ -17,12 +17,25 @@ const urlSchema = z
   .string()
   .max(8192)
   .url()
-  .refine((s) => /^https?:\/\//i.test(s), "Use an http or https URL");
+  .refine((s) => {
+    try {
+      const url = new URL(s);
+      return (
+        ["https:", "http:"].includes(url.protocol) &&
+        !url.username &&
+        !url.password
+      );
+    } catch {
+      return false;
+    }
+  }, "Use an http or https URL without embedded credentials")
+  .transform((s) => new URL(s).href);
 export const resourceSchema = z
   .object({
     id: idSchema.optional(),
     title: z.string().trim().min(1).max(2000),
     url: urlSchema,
+    source: z.enum(["MANUAL", "WORKSPACE"]).optional(),
   })
   .strict();
 const checkSchema = z
@@ -48,6 +61,22 @@ export const patchSchema = workSchema
   .partial()
   .refine((p) => Object.keys(p).length > 0, "Provide at least one field");
 export type WorkInput = z.infer<typeof workSchema>;
+export const workspaceSchema = z
+  .object({
+    resources: z
+      .array(resourceSchema.pick({ title: true, url: true }))
+      .min(1)
+      .max(50),
+  })
+  .strict();
+export const checkpointSchema = z
+  .object({
+    requestId: idSchema,
+    whereILeftOff: z.string().trim().min(1).max(20000),
+    nextAction: z.string().trim().min(1).max(20000),
+    resources: workspaceSchema.shape.resources.optional(),
+  })
+  .strict();
 export const importSchema = z
   .object({
     sourceId: z.string().uuid(),

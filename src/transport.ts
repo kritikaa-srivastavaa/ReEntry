@@ -1,6 +1,11 @@
 import type { AuthCommand, SessionView } from "./api";
 import { apiTimeoutMs } from "./api";
-import type { Command, WorkItem } from "./model";
+import type {
+  Command,
+  WorkItem,
+  HistoryCommand,
+  CheckpointPage,
+} from "./model";
 import { createSessionService } from "./session-service";
 const listeners = new Set<() => void>();
 function notify() {
@@ -49,12 +54,17 @@ async function timeoutDetails(): Promise<string> {
     clearTimeout(timer);
   }
 }
-async function send(channel: string, command: Command | AuthCommand) {
+async function send(
+  channel: string,
+  command: Command | AuthCommand | HistoryCommand,
+) {
   if (!globalThis.chrome?.runtime?.id) {
     const task = devQueue.then(async () =>
       channel === "reentry-auth"
         ? { session: await devService.auth(command as AuthCommand) }
-        : { items: await devService.work(command as Command) },
+        : channel === "reentry-history"
+          ? { history: await devService.history(command as HistoryCommand) }
+          : { items: await devService.work(command as Command) },
     );
     devQueue = task.catch(() => undefined);
     return task;
@@ -89,6 +99,30 @@ export async function request(command: Command): Promise<WorkItem[]> {
         "ReEntry returned an invalid work list. Refresh and try again.",
       );
     return response.items;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+export async function requestHistory(
+  command: HistoryCommand,
+): Promise<CheckpointPage> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const response = await Promise.race([
+      send("reentry-history", command),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Unable to load recent progress. Try again.")),
+          apiTimeoutMs() * 2 + 5000,
+        );
+      }),
+    ]);
+    if (
+      !Array.isArray(response.history?.checkpoints) ||
+      typeof response.history?.hasMore !== "boolean"
+    )
+      throw new Error("Unable to load recent progress. Refresh and try again.");
+    return response.history;
   } finally {
     clearTimeout(timer);
   }

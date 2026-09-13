@@ -35,6 +35,7 @@ try {
     "sessions",
     "v1_imports",
     "create_receipts",
+    "work_checkpoints",
   ]) {
     const exists = (
       await client.query("SELECT to_regclass($1) IS NOT NULL AS present", [

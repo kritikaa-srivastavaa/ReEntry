@@ -86,9 +86,38 @@ export const resources = pgTable(
       .references(() => workItems.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     url: text("url").notNull(),
+    source: text("source", { enum: ["MANUAL", "WORKSPACE"] })
+      .notNull()
+      .default("MANUAL"),
+    position: integer("position").notNull().default(0),
     ...dates(),
   },
   (t) => [uniqueIndex("resource_work_url_unique").on(t.workItemId, t.url)],
+);
+// A retry ID keeps interrupted checkpoint saves from duplicating history.
+export const workCheckpoints = pgTable(
+  "work_checkpoints",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workItemId: uuid("work_item_id")
+      .notNull()
+      .references(() => workItems.id, { onDelete: "cascade" }),
+    whereILeftOff: text("where_i_left_off").notNull(),
+    nextAction: text("next_action").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    requestId: uuid("request_id").notNull(),
+    payloadHash: text("payload_hash").notNull(),
+  },
+  (t) => [
+    uniqueIndex("checkpoint_work_request_unique").on(t.workItemId, t.requestId),
+    index("checkpoints_work_created_idx").on(
+      t.workItemId,
+      t.createdAt.desc(),
+      t.id.desc(),
+    ),
+  ],
 );
 // Retain migration receipts even if the imported work item is later deleted.
 export const imports = pgTable(

@@ -73,6 +73,16 @@ try {
   });
   stage = "source connection";
   await source.connect();
+  stage =
+    "V2-only transfer compatibility check (V3 requires a reviewed full backup/restore)";
+  if (
+    (
+      await source.query(
+        "SELECT to_regclass('public.work_checkpoints') IS NOT NULL AS present",
+      )
+    ).rows[0].present
+  )
+    throw new Error("Refusing to omit V3 history and workspace metadata");
   stage = "target TLS connection";
   await target.connect();
   await source.query("SET TIME ZONE 'UTC'");
