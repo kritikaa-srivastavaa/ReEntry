@@ -8,6 +8,7 @@ import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { createHash } from "node:crypto";
 import { z, ZodError } from "zod";
 import { and, eq, gt, sql } from "drizzle-orm";
 import type { Database } from "./db.js";
@@ -18,6 +19,7 @@ import {
   checklistItems,
   resources,
   imports,
+  createReceipts,
 } from "./schema.js";
 import {
   credentialsSchema,
@@ -282,8 +284,61 @@ export function createApp(
     "/api/work-items",
     route(async (req, res) => {
       const input = workSchema.parse(req.body);
+      const requestId = req.get("Idempotency-Key")
+        ? idSchema.parse(req.get("Idempotency-Key"))
+        : undefined;
+      const payloadHash = createHash("sha256")
+        .update(JSON.stringify(input))
+        .digest("hex");
       const item = await db.transaction(async (tx) => {
+        if (requestId) {
+          const [receipt] = await tx
+            .insert(createReceipts)
+            .values({ userId: res.locals.userId, requestId, payloadHash })
+            .onConflictDoNothing()
+            .returning();
+          if (!receipt) {
+            const [previous] = await tx
+              .select()
+              .from(createReceipts)
+              .where(
+                and(
+                  eq(createReceipts.userId, res.locals.userId),
+                  eq(createReceipts.requestId, requestId),
+                ),
+              );
+            if (previous.payloadHash !== payloadHash)
+              throw new HttpError(
+                409,
+                "This create attempt already saved different content. Close the form and refresh to find the saved item before editing it.",
+              );
+            if (!previous.workItemId)
+              throw new HttpError(
+                410,
+                "The item from this create attempt was deleted. Close the form before creating another.",
+              );
+            return (
+              await listWork(
+                tx,
+                res.locals.userId,
+                undefined,
+                undefined,
+                previous.workItemId,
+              )
+            )[0];
+          }
+        }
         const created = await createWork(tx, res.locals.userId, input);
+        if (requestId)
+          await tx
+            .update(createReceipts)
+            .set({ workItemId: created.id })
+            .where(
+              and(
+                eq(createReceipts.userId, res.locals.userId),
+                eq(createReceipts.requestId, requestId),
+              ),
+            );
         return (
           await listWork(
             tx,

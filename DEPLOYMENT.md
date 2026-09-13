@@ -1,8 +1,14 @@
 # Shared ReEntry deployment
 
-Status: deployment preparation only. A hosting account and a live API URL are
-required before cross-device login can be verified. Local installations still
-use localhost until their extension builds are configured with the shared URL.
+Status: the temporary Render API is live; the owner reports the V2.1 production
+acceptance checks passed. See VERIFICATION.md for evidence attribution.
+Local installations still use localhost until their extension builds are
+configured with the shared URL.
+
+V2.1's complete phased acceptance procedure and evidence record are in
+[VERIFICATION.md](VERIFICATION.md). Record the deployed commit and do not mistake
+a successful deployment for verified V2.1. Cross-device scenarios require manual
+verification against the deployed version.
 
 ## Selected option: temporary free Render demo
 
@@ -86,14 +92,16 @@ cost, retention and backup policy before creating resources.
 
 ## Point every device at the shared API
 
-Set the repository root `.env` on the build machine:
+Set the repository root `.env.hosted.local` on the build machine, keeping the
+existing local `.env` unchanged:
 
 ```dotenv
 VITE_API_URL=https://YOUR-API-HOST/api
 VITE_API_TIMEOUT_MS=90000
 ```
 
-Run `npm run build` from the repository root. This also updates the extension's
+Run `npm run build:hosted` from the repository root. This rejects a localhost or
+non-HTTPS target and also updates the extension's
 host permission. Load the resulting `dist` folder via Chrome's **Load unpacked**
 on each device, or reload the existing unpacked extension if replacing it in
 the same folder. Close any old ReEntry tabs before reopening.

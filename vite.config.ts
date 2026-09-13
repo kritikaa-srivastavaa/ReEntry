@@ -6,6 +6,19 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   const api = new URL(env.VITE_API_URL || "http://localhost:3001/api");
   if (
+    mode === "hosted" &&
+    (api.protocol !== "https:" ||
+      ["localhost", "127.0.0.1"].includes(api.hostname))
+  ) {
+    throw new Error(
+      "Hosted builds require VITE_API_URL=https://your-deployed-api/api in .env.hosted.local.",
+    );
+  }
+  if (api.username || api.password || api.search || api.hash)
+    throw new Error(
+      "The API URL must not contain credentials, a query, or a fragment.",
+    );
+  if (
     api.protocol !== "https:" &&
     !(
       api.protocol === "http:" &&

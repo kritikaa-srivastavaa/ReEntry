@@ -7,13 +7,14 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && vite build",
-    "test": "tsx --test tests/model.test.ts tests/background.test.ts tests/ui.test.tsx tests/auth.test.tsx",
+    "test": "tsx --test tests/model.test.ts tests/background.test.ts tests/ui.test.tsx tests/auth.test.tsx tests/reliability.test.tsx",
+    "build:hosted": "npm run typecheck && vite build --mode hosted",
     "server:dev": "npm --prefix server run dev",
     "server:build": "npm --prefix server run build",
     "local:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1",
     "local:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-local.ps1",
-    "format": "prettier --write src tests server/src server/tests server/scripts/*.mjs server/*.json public/manifest.json *.json *.html vite.config.ts README.md",
-    "format:check": "prettier --check src tests server/src server/tests server/scripts/*.mjs server/*.json public/manifest.json *.json *.html vite.config.ts README.md"
+    "format": "prettier --write src tests server/src server/tests server/scripts/*.mjs server/*.json public/manifest.json *.json *.html vite.config.ts *.md render.yaml",
+    "format:check": "prettier --check src tests server/src server/tests server/scripts/*.mjs server/*.json public/manifest.json *.json *.html vite.config.ts *.md render.yaml"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

@@ -68,7 +68,30 @@ async function send(channel: string, command: Command | AuthCommand) {
   return response;
 }
 export async function request(command: Command): Promise<WorkItem[]> {
-  return (await send("reentry", command)).items;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const response = await Promise.race([
+      send("reentry", command),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                "ReEntry did not respond in time. Refresh to check whether your change was saved before repeating it.",
+              ),
+            ),
+          apiTimeoutMs() * 2 + 5000,
+        );
+      }),
+    ]);
+    if (!Array.isArray(response.items))
+      throw new Error(
+        "ReEntry returned an invalid work list. Refresh and try again.",
+      );
+    return response.items;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 export async function authRequest(command: AuthCommand): Promise<SessionView> {
   // A stopped/outdated extension worker may never answer. Bound session discovery

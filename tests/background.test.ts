@@ -5,6 +5,7 @@ import { STORAGE_KEY, seedItems } from "../src/model";
 import {
   createSessionService,
   MIGRATION_KEY,
+  MIGRATION_OWNER_KEY,
   SESSION_KEY,
 } from "../src/session-service";
 import { migrationPayload } from "../src/api";
@@ -19,6 +20,7 @@ test("API bridge keeps tokens private, retries migration safely and clears expir
     [STORAGE_KEY]: structuredClone(legacy),
   };
   const receipts = new Set<string>();
+  let userId = "alice";
   let apiDown = false,
     expired = false,
     failMarker = false,
@@ -54,7 +56,7 @@ test("API bridge keeps tokens private, retries migration safely and clears expir
       return new Response(
         JSON.stringify({
           token: "private-token",
-          user: { id: "alice", email: "alice@example.com" },
+          user: { id: userId, email: `${userId}@example.com` },
           expiresAt: "2030-01-01T00:00:00.000Z",
         }),
       );
@@ -68,7 +70,9 @@ test("API bridge keeps tokens private, retries migration safely and clears expir
       });
     if (path.endsWith("/auth/me"))
       return new Response(
-        JSON.stringify({ user: { id: "alice", email: "alice@example.com" } }),
+        JSON.stringify({
+          user: { id: userId, email: `${userId}@example.com` },
+        }),
       );
     if (path.endsWith("/auth/logout"))
       return new Response(null, { status: 204 });
@@ -118,6 +122,26 @@ test("API bridge keeps tokens private, retries migration safely and clears expir
     assert.ok(sourceId);
     assert.equal(importedCount, 0);
     apiDown = false;
+    userId = "bob";
+    assert.equal(
+      (
+        await service.auth({
+          type: "login",
+          email: "bob@example.com",
+          password: "test-password",
+        })
+      ).migrationCount,
+      0,
+      "partial import remains bound to its original account",
+    );
+    await service.auth({ type: "migrate" });
+    assert.equal(importedCount, 0);
+    userId = "alice";
+    await service.auth({
+      type: "login",
+      email: "alice@example.com",
+      password: "test-password",
+    });
     failMarker = true;
     await assert.rejects(
       service.auth({ type: "migrate" }),
@@ -134,6 +158,59 @@ test("API bridge keeps tokens private, retries migration safely and clears expir
     assert.deepEqual(saved[STORAGE_KEY], legacy);
     const restarted = createSessionService(storage, () => events++);
     assert.equal((await restarted.auth({ type: "session" })).user?.id, "alice");
+    const hostedScope = "https://reentry-transfer.example/api";
+    const hosted = createSessionService(storage, () => events++, hostedScope);
+    assert.equal((await hosted.auth({ type: "session" })).user, null);
+    // Upgrade from V2.1: only the old localhost completion marker exists.
+    delete saved[MIGRATION_OWNER_KEY];
+    userId = "bob";
+    assert.equal(
+      (
+        await hosted.auth({
+          type: "login",
+          email: "bob@example.com",
+          password: "test-password",
+        })
+      ).migrationCount,
+      0,
+      "a new hosted account cannot import another account's retained local source",
+    );
+    await hosted.auth({ type: "migrate" });
+    assert.equal(saved[`${MIGRATION_KEY}:${hostedScope}`], undefined);
+    assert.equal(importedCount, 3);
+    userId = "alice";
+    await hosted.auth({
+      type: "login",
+      email: "alice@example.com",
+      password: "not-in-views",
+    });
+    assert.equal((await hosted.auth({ type: "session" })).migrationCount, 3);
+    await hosted.auth({ type: "migrate" });
+    assert.equal(
+      importedCount,
+      3,
+      "copied backend receipts prevent duplicate import after switching endpoints",
+    );
+    assert.equal(
+      (saved[`${MIGRATION_KEY}:${hostedScope}`] as { sourceId: string })
+        .sourceId,
+      sourceId,
+    );
+    assert.deepEqual(saved[STORAGE_KEY], legacy);
+    userId = "bob";
+    assert.equal(
+      (
+        await hosted.auth({
+          type: "login",
+          email: "bob@example.com",
+          password: "test-password",
+        })
+      ).migrationCount,
+      0,
+    );
+    await hosted.auth({ type: "migrate" });
+    assert.equal(importedCount, 3);
+    userId = "alice";
     expired = true;
     await assert.rejects(restarted.work({ type: "list" }), /Expired/);
     assert.equal(saved[SESSION_KEY], undefined);

@@ -36,7 +36,7 @@ export type Editable = Pick<
 >;
 export type Command =
   | { type: "list" }
-  | { type: "create"; item: Editable }
+  | { type: "create"; item: Editable; requestId?: string }
   | { type: "patch"; id: string; patch: Partial<Editable> }
   | { type: "delete"; id: string }
   | { type: "check"; id: string; checkId: string; completed: boolean }

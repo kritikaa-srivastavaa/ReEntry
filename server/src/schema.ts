@@ -107,3 +107,20 @@ export const imports = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.sourceId] })],
 );
+export const createReceipts = pgTable(
+  "create_receipts",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    requestId: uuid("request_id").notNull(),
+    payloadHash: text("payload_hash").notNull(),
+    workItemId: uuid("work_item_id").references(() => workItems.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.requestId] })],
+);

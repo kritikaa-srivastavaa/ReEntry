@@ -9,8 +9,15 @@ export function useWorkItems() {
   const [error, setError] = useState("");
   useEffect(() => {
     let active = true,
-      version = 0;
+      version = 0,
+      inFlight = false,
+      pendingRefresh = false;
     async function refresh() {
+      if (inFlight) {
+        pendingRefresh = true;
+        return;
+      }
+      inFlight = true;
       const current = ++version;
       try {
         const value = await request({ type: "list" });
@@ -22,12 +29,17 @@ export function useWorkItems() {
         if (active && current === version) setError((e as Error).message);
       } finally {
         if (active && current === version) setLoading(false);
+        inFlight = false;
+        if (active && pendingRefresh) {
+          pendingRefresh = false;
+          void refresh();
+        }
       }
     }
     void refresh();
     const unsubscribe = subscribe(() => void refresh());
     const focused = () => {
-      if (document.visibilityState !== "hidden") void refresh();
+      if (document.visibilityState !== "hidden" && !inFlight) void refresh();
     };
     const interval = setInterval(focused, 15000);
     window.addEventListener("focus", focused);

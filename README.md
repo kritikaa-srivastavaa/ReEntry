@@ -1,5 +1,12 @@
 # ReEntry V2
 
+V1 proved the resume-work experience with a local Chrome extension. V2 adds
+accounts, an authenticated REST API and PostgreSQL so data can be shared across
+devices. **V2.1 is deployed on Render**, with production acceptance checks
+reported passed by the owner. Automated checks and directly observed deployment
+evidence are recorded separately in the [V2.1 verification guide](VERIFICATION.md),
+alongside the manual procedures and remaining evidence limitations.
+
 ReEntry helps you resume ongoing work by remembering where you stopped, what to do next, and which resources belong to that work. It is a personal work console, not a generic task manager.
 
 The compact popup cards, dashboard list, direct navigation to details, context editor, checklists, resource capture, search, and status filters remain. The dashboard sorts In Progress, Not Started, then Done, with newest updates first in each group.
@@ -22,6 +29,13 @@ The API/database is the canonical store for authenticated work. Work items are n
 
 Open extension views refresh after successful changes and on focus. Visible views also poll every 15 seconds to pick up changes from another browser/profile. No WebSockets or extra infrastructure are needed. Field patches preserve unrelated fields; two edits to the same field use the last saved value. Full checklist/resource edits replace the submitted collection atomically; individual checkbox changes use a narrow endpoint.
 
+Slow list refreshes are coalesced. Creates from the same open form carry an
+idempotency key backed by `create_receipts`; a lost response can be retried
+without creating a duplicate. Closing the form starts a new operation, so
+refresh before repeating an uncertain create. Hosted session and migration
+keys are scoped to the API URL; switching from localhost does not reuse the
+local account or suppress a hosted V1 import.
+
 ## Stack and folders
 
 - Client at repository root: React 18, TypeScript, Vite 6, Manifest V3, locally bundled Lucide icons.
@@ -37,7 +51,7 @@ Open extension views refresh after successful changes and on focus. Visible view
 - `server/src/app.ts`, `server/src/work-service.ts`: authentication, ownership checks, REST routes, validation, and transactional work operations.
 - `tests/`, `server/tests/`: UI/model/session tests and real PostgreSQL API integration tests.
 
-There is no Docker, OAuth, email verification, password reset, or backend infrastructure beyond one API process and PostgreSQL. For the shared hosted demo, see [deployment setup](DEPLOYMENT.md). A Render Blueprint is prepared; hosting is not live until provisioned and verified.
+There is no Docker, OAuth, email verification, password reset, or backend infrastructure beyond one API process and PostgreSQL. For the shared hosted demo, see [deployment setup](DEPLOYMENT.md). The temporary Render API is live at https://reentry-api-5jfm.onrender.com; see the verification record for test evidence and free-hosting limitations.
 
 ## Database schema
 
@@ -187,7 +201,7 @@ After login, ReEntry detects items in `reentry.workItems.v1` and offers **Import
 4. Only after all requests succeed is the local migration marked complete. The original V1 data is retained, never deleted or used as a current work database.
 5. A failed request or local marker write can be retried safely. Previously committed batches are skipped. Deleting imported work does not make retries recreate it.
 
-The device's source is offered only until successfully imported into one account; subsequent account switches do not offer to copy the previous owner's V1 data. **Not now** postpones the prompt until the next login/reopen. Account data comes solely from the API. Keep the same unpacked extension ID/folder to retain access to the V1 source and migration marker.
+The device's source is bound to the importing account before upload, so even a partial import cannot be continued by another account. Older completion markers also establish ownership when moving from localhost to the hosted API. Completion remains specific to each API, allowing the same owner to retry safely against a new database; other accounts are never offered that retained backup. **Not now** postpones an unclaimed import prompt until the next login/reopen. Account data comes solely from the API. Keep the same unpacked extension ID/folder to retain access to the V1 source and migration marker.
 
 ## REST API
 

@@ -63,6 +63,89 @@ test("API integration against isolated PostgreSQL", async (t) => {
       .expect(201);
     const item = created.body.item;
     await t.test(
+      "health checks the database without authentication or sensitive metadata",
+      async () => {
+        const health = await request(app).get("/api/health").expect(200);
+        assert.deepEqual(health.body, { status: "ok" });
+      },
+    );
+    await t.test(
+      "independent sessions share work and survive API recreation",
+      async () => {
+        const second = await request(app)
+          .post("/api/auth/login")
+          .send({ email: "alice@example.com", password })
+          .expect(200);
+        const restarted = createApp(db, { jwtSecret: secret, origins: [] });
+        const otherSession = { Authorization: `Bearer ${second.body.token}` };
+        const before = await request(restarted)
+          .get(`/api/work-items/${item.id}`)
+          .set(otherSession)
+          .expect(200);
+        assert.equal(before.body.item.nextAction, input.nextAction);
+        await request(restarted)
+          .patch(`/api/work-items/${item.id}`)
+          .set(otherSession)
+          .send({ nextAction: "Study CDN" })
+          .expect(200);
+        const updated = await request(app)
+          .get(`/api/work-items/${item.id}`)
+          .set(authA)
+          .expect(200);
+        assert.equal(updated.body.item.nextAction, "Study CDN");
+        await request(restarted)
+          .post("/api/auth/logout")
+          .set(otherSession)
+          .expect(204);
+        await request(app).get("/api/auth/me").set(otherSession).expect(401);
+        await request(app).get("/api/auth/me").set(authA).expect(200);
+      },
+    );
+    await t.test(
+      "concurrent create retries are user-scoped and never resurrect deleted work",
+      async () => {
+        const key = randomUUID();
+        const attempts = await Promise.all(
+          [1, 2].map(() =>
+            request(app)
+              .post("/api/work-items")
+              .set(authA)
+              .set("Idempotency-Key", key)
+              .send(input),
+          ),
+        );
+        attempts.forEach((r) => assert.equal(r.status, 201));
+        assert.equal(attempts[0].body.item.id, attempts[1].body.item.id);
+        await request(app)
+          .post("/api/work-items")
+          .set(authA)
+          .set("Idempotency-Key", key)
+          .send({ ...input, title: "Changed" })
+          .expect(409);
+        const other = await request(app)
+          .post("/api/work-items")
+          .set(authB)
+          .set("Idempotency-Key", key)
+          .send(input)
+          .expect(201);
+        assert.notEqual(other.body.item.id, attempts[0].body.item.id);
+        await request(app)
+          .delete(`/api/work-items/${other.body.item.id}`)
+          .set(authB)
+          .expect(204);
+        await request(app)
+          .delete(`/api/work-items/${attempts[0].body.item.id}`)
+          .set(authA)
+          .expect(204);
+        await request(app)
+          .post("/api/work-items")
+          .set(authA)
+          .set("Idempotency-Key", key)
+          .send(input)
+          .expect(410);
+      },
+    );
+    await t.test(
       "registration, login, validation, password hashing and session lookup",
       async () => {
         assert.equal(a.body.user.email, "alice@example.com");
@@ -336,6 +419,29 @@ test("API integration against isolated PostgreSQL", async (t) => {
         ).body.items[0];
         assert.equal(migrated.createdAt, legacy.createdAt);
         assert.equal(migrated.updatedAt, legacy.updatedAt);
+        for (const field of [
+          "title",
+          "category",
+          "goal",
+          "status",
+          "whereILeftOff",
+          "nextAction",
+        ] as const)
+          assert.equal(migrated[field], legacy[field]);
+        assert.deepEqual(
+          migrated.checklist.map((c: { text: string; completed: boolean }) => ({
+            text: c.text,
+            completed: c.completed,
+          })),
+          legacy.checklist.map(({ text, completed }) => ({ text, completed })),
+        );
+        assert.deepEqual(
+          migrated.resources.map((r: { title: string; url: string }) => ({
+            title: r.title,
+            url: r.url,
+          })),
+          legacy.resources.map(({ title, url }) => ({ title, url })),
+        );
         assert.equal(migrated.checklist[0].text, "First");
         assert.equal(migrated.checklist[0].completed, true);
         assert.equal(migrated.resources[0].url, legacy.resources[0].url);

@@ -557,6 +557,7 @@ function Editor({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const createRequestId = useRef(crypto.randomUUID());
   function field<K extends keyof Editable>(key: K, value: Editable[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
   }
@@ -572,7 +573,12 @@ function Editor({
             Object.assign(patch, { [key]: draft[key] });
         }
         await request({ type: "patch", id: item.id, patch });
-      } else await request({ type: "create", item: draft });
+      } else
+        await request({
+          type: "create",
+          item: draft,
+          requestId: createRequestId.current,
+        });
       saved();
     } catch (e) {
       setError((e as Error).message);

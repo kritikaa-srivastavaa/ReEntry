@@ -53,6 +53,7 @@ export async function apiFetch<T>(
   token?: string,
   method = "GET",
   body?: unknown,
+  requestId?: string,
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), apiTimeoutMs());
@@ -62,6 +63,7 @@ export async function apiFetch<T>(
       headers: {
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(requestId ? { "Idempotency-Key": requestId } : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
@@ -70,23 +72,39 @@ export async function apiFetch<T>(
       redirect: "error",
     });
     if (response.status === 204) return undefined as T;
-    const data = (await response.json().catch(() => ({}))) as {
+    const data = (await response.json().catch(() => null)) as {
       error?: string;
       details?: { path: string; message: string }[];
-    };
+    } | null;
     if (!response.ok)
       throw new ApiError(
         [
-          data.error || "The API could not complete this request.",
-          ...(data.details?.map((d) => `${d.path}: ${d.message}`) || []),
+          data?.error ||
+            (
+              {
+                401: "Your session expired. Please log in again.",
+                403: "This extension is not allowed to connect. Check the server's allowed origins.",
+                404: "This item or endpoint is no longer available. Refresh and try again.",
+                429: "Too many requests. Wait a minute before retrying.",
+              } as Record<number, string>
+            )[response.status] ||
+            "The server could not complete this request. Try again.",
+          ...(Array.isArray(data?.details)
+            ? data.details.map((d) => `${d.path}: ${d.message}`)
+            : []),
         ].join(" "),
         response.status,
       );
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new ApiError(
+        "ReEntry returned an invalid response. The change could not be confirmed; refresh before retrying.",
+      );
+    }
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(
-      "Cannot reach the ReEntry API. Check that the backend is running, then retry. Your saved server data has not been replaced.",
+      "Cannot reach ReEntry. The server may be waking up or your connection may be offline. Try again. A submitted change may have reached the server; refresh before repeating it.",
     );
   } finally {
     clearTimeout(timer);
@@ -127,8 +145,19 @@ export async function executeApiCommand(
       })),
     }));
   }
-  if (command.type === "create")
-    await apiFetch("/work-items", token, "POST", payload(command.item));
+  if (command.type === "create") {
+    const result = await apiFetch<{ item?: { id?: string } }>(
+      "/work-items",
+      token,
+      "POST",
+      payload(command.item),
+      command.requestId,
+    );
+    if (!result?.item?.id)
+      throw new ApiError(
+        "The saved work item could not be confirmed. Refresh before retrying.",
+      );
+  }
   if (command.type === "patch") {
     if (Object.keys(command.patch).length)
       await apiFetch(
